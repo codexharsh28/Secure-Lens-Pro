@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 
 import firebase_admin
-from firebase_admin import credentials, firestore
+from firebase_admin import auth, credentials, firestore
 
 from app.config import Config
 
@@ -40,6 +40,20 @@ def get_firestore_client():
     return firestore.client()
 
 
+def verify_id_token(id_token: str) -> dict:
+    """Verify a Firebase ID token and return its trusted claims."""
+    get_firestore_client()
+    return auth.verify_id_token(id_token, check_revoked=True)
+
+
+def get_user_role(user_id: str) -> str:
+    db = get_firestore_client()
+    snapshot = db.collection("users").document(user_id).get()
+    if not snapshot.exists:
+        return "user"
+    return str((snapshot.to_dict() or {}).get("role", "user")).lower()
+
+
 def save_scan_result(scan_type: str, result: dict, user_id: str | None = None) -> None:
     try:
         db = get_firestore_client()
@@ -68,7 +82,7 @@ def save_assistant_activity(message: str, user_id: str | None = None) -> None:
 
     db.collection("assistant_activity").add(
         {
-            "message": message,
+            "messageLength": len(message),
             "userId": user_id or "",
             "createdAt": firestore.SERVER_TIMESTAMP,
         }

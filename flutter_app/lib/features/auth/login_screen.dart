@@ -24,12 +24,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _isAdmin = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _authService.createAdminIfMissing();
-  }
-
   Future<void> _login() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();

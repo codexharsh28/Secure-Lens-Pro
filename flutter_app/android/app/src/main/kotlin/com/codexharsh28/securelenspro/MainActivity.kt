@@ -1,4 +1,4 @@
-package com.example.secure_lens_pro
+package com.codexharsh28.securelenspro
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -72,6 +72,9 @@ def _calculate_live_score(
     for scan in recent_scans:
         level = str(scan.get("riskLevel") or scan.get("risk_level") or "").lower()
         scan_type = str(scan.get("scanType") or scan.get("scan_type") or "").lower()
+        raw_result = scan.get("raw")
+        if scan_type == "breach" and isinstance(raw_result, dict) and raw_result.get("is_simulated"):
+            continue
 
         if level in DANGER_LEVELS:
             high_risk_events += 1
@@ -82,19 +85,18 @@ def _calculate_live_score(
         else:
             safe_events += 1
 
-    score = 88
+    score = 100
     score -= high_risk_events * 12
     score -= medium_risk_events * 5
     score -= breach_hits * 8
-    score += min(recent_chats, 5) * 2
-    score += min(safe_events, 4)
 
-    final_score = max(20, min(98, round(score)))
+    final_score = max(0, min(100, round(score)))
     level = _score_level(final_score)
 
     return {
         "cyber_score": final_score,
         "level": level,
+        "has_activity": bool(high_risk_events or medium_risk_events or safe_events),
         "factors": {
             "high_risk_events": high_risk_events,
             "medium_risk_events": medium_risk_events,
@@ -125,6 +127,7 @@ def _calculate_fallback_score(signals: dict) -> dict:
     return {
         "cyber_score": final_score,
         "level": level,
+        "has_activity": bool(signals),
         "factors": {
             "password_strength": password_strength,
             "training_completion": training_completion,

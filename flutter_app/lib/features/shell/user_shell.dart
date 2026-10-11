@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../core/utils/responsive.dart';
-import '../admin/admin_gate_screen.dart';
+import '../breach/breach_monitoring_screen.dart';
 import '../chatbot/chatbot_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../profile/profile_screen.dart';
+import '../scanner/scanner_screen.dart';
+import '../score/cyber_score_screen.dart';
 
 class UserShell extends StatefulWidget {
   const UserShell({super.key});
@@ -18,15 +20,19 @@ class _UserShellState extends State<UserShell> {
 
   late final List<Widget> _screens = const [
     DashboardScreen(),
+    ScannerScreen(),
+    BreachMonitoringScreen(),
     ChatbotScreen(),
-    AdminGateScreen(),
+    CyberScoreScreen(),
     ProfileScreen(),
   ];
 
   final List<_NavItem> _items = const [
     _NavItem(icon: Icons.home_filled, label: 'Home'),
+    _NavItem(icon: Icons.qr_code_scanner_rounded, label: 'Scan'),
+    _NavItem(icon: Icons.shield_outlined, label: 'Breach'),
     _NavItem(icon: Icons.forum_rounded, label: 'AI Chat'),
-    _NavItem(icon: Icons.admin_panel_settings_rounded, label: 'Admin'),
+    _NavItem(icon: Icons.insights_rounded, label: 'Score'),
     _NavItem(icon: Icons.person_outline_rounded, label: 'Profile'),
   ];
 

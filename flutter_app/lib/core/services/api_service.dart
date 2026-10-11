@@ -9,111 +9,67 @@ class ApiService {
     defaultValue: 'http://localhost:5000/api',
   );
 
-  String? get _currentUserId => FirebaseAuth.instance.currentUser?.uid;
-
-  Future<Map<String, dynamic>> requestEmailOtp({
-    required String email,
-    String purpose = 'signup',
+  Future<Map<String, dynamic>> _request(
+    String method,
+    String path, {
+    Map<String, dynamic>? body,
+    bool authenticated = true,
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/auth/email-otp/request'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'purpose': purpose}),
-    );
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    if (authenticated) {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw StateError('Please sign in before using this feature.');
+      }
+      final token = await user.getIdToken();
+      if (token == null || token.isEmpty) {
+        throw StateError('Your session expired. Please sign in again.');
+      }
+      headers['Authorization'] = 'Bearer $token';
+    }
 
-    return jsonDecode(response.body);
+    final uri = Uri.parse('$baseUrl$path');
+    final response = switch (method) {
+      'GET' => await http.get(uri, headers: headers),
+      _ => await http.post(
+          uri,
+          headers: headers,
+          body: jsonEncode(body ?? const <String, dynamic>{}),
+        ),
+    };
+
+    final decoded = jsonDecode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final message = decoded is Map
+          ? decoded['error']?.toString() ?? decoded['message']?.toString()
+          : null;
+      throw Exception(message ?? 'Request failed (${response.statusCode}).');
+    }
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('Unexpected response from the security service.');
+    }
+    return decoded;
   }
 
-  Future<Map<String, dynamic>> verifyEmailOtp({
-    required String email,
-    required String code,
-    String purpose = 'signup',
-  }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/auth/email-otp/verify'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'email': email,
-        'code': code,
-        'purpose': purpose,
-      }),
-    );
+  Future<Map<String, dynamic>> scanEmail(String content) =>
+      _request('POST', '/scan/email', body: {'content': content});
 
-    return jsonDecode(response.body);
-  }
+  Future<Map<String, dynamic>> scanUrl(String url) =>
+      _request('POST', '/scan/url', body: {'url': url});
 
-  Future<Map<String, dynamic>> scanEmail(String content) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/scan/email'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'content': content,
-        'user_id': _currentUserId,
-      }),
-    );
+  Future<Map<String, dynamic>> checkBreach(String identifier) =>
+      _request('POST', '/breach/check', body: {'identifier': identifier});
 
-    return jsonDecode(response.body);
-  }
+  Future<Map<String, dynamic>> getCyberScore() => _request('POST', '/score');
 
-  Future<Map<String, dynamic>> scanUrl(String url) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/scan/url'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'url': url,
-        'user_id': _currentUserId,
-      }),
-    );
+  Future<Map<String, dynamic>> sendChatMessage(String message) =>
+      _request('POST', '/chat', body: {'message': message});
 
-    return jsonDecode(response.body);
-  }
-
-  Future<Map<String, dynamic>> checkBreach(String identifier) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/breach/check'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'identifier': identifier,
-        'user_id': _currentUserId,
-      }),
-    );
-
-    return jsonDecode(response.body);
-  }
-
-  Future<Map<String, dynamic>> getCyberScore() async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/score'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'user_id': _currentUserId,
-      }),
-    );
-
-    return jsonDecode(response.body);
-  }
-
-  Future<Map<String, dynamic>> sendChatMessage(String message) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/chat'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'message': message,
-        'user_id': _currentUserId,
-      }),
-    );
-
-    return jsonDecode(response.body);
-  }
-
-  Future<Map<String, dynamic>> getAdminMetrics() async {
-    final response = await http.get(Uri.parse('$baseUrl/admin/metrics'));
-    return jsonDecode(response.body);
-  }
+  Future<Map<String, dynamic>> getAdminMetrics() =>
+      _request('GET', '/admin/metrics');
 
   Future<List<Map<String, dynamic>>> getAdminUsers() async {
-    final response = await http.get(Uri.parse('$baseUrl/admin/users'));
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final data = await _request('GET', '/admin/users');
     final users = (data['users'] ?? []) as List<dynamic>;
     return users
         .whereType<Map>()

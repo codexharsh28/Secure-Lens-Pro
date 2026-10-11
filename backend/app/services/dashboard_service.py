@@ -30,13 +30,15 @@ def get_admin_metrics() -> dict:
 
         score_result = calculate_cyber_score(user_id=snapshot.id)
         score = int(score_result.get("cyber_score", 0))
-        risk_level = _risk_from_score(score)
+        has_activity = bool(score_result.get("has_activity"))
+        risk_level = _risk_from_score(score) if has_activity else "unknown"
 
         user_entries.append(
             {
                 "id": snapshot.id,
                 "score": score,
                 "risk_level": risk_level,
+                "has_activity": has_activity,
             }
         )
 
@@ -45,7 +47,11 @@ def get_admin_metrics() -> dict:
         [user for user in user_entries if user["risk_level"] == "high"]
     )
 
-    scores = [user["score"] for user in user_entries if user["score"] > 0]
+    scores = [
+        user["score"]
+        for user in user_entries
+        if user["has_activity"] and user["score"] > 0
+    ]
     average_cyber_score = round(sum(scores) / len(scores)) if scores else 0
 
     recent_threats = 0
@@ -89,7 +95,8 @@ def get_admin_users() -> dict:
 
         score_result = calculate_cyber_score(user_id=snapshot.id)
         score = int(score_result.get("cyber_score", 0))
-        risk_level = _risk_from_score(score)
+        has_activity = bool(score_result.get("has_activity"))
+        risk_level = _risk_from_score(score) if has_activity else "unknown"
 
         users.append(
             {
@@ -99,6 +106,7 @@ def get_admin_users() -> dict:
                 "role": role,
                 "photo_url": str(data.get("photoUrl", "")),
                 "cyber_score": score,
+                "has_activity": has_activity,
                 "risk_level": risk_level,
                 "status_label": _status_label(risk_level),
                 "created_at": _format_created_at(data.get("createdAt")),
@@ -124,6 +132,8 @@ def _risk_from_score(score: int) -> str:
 
 
 def _status_label(risk_level: str) -> str:
+    if risk_level == "unknown":
+        return "No activity yet"
     if risk_level == "high":
         return "Needs Attention"
     if risk_level == "medium":
@@ -136,7 +146,9 @@ def _risk_priority(risk_level: str) -> int:
         return 0
     if risk_level == "medium":
         return 1
-    return 2
+    if risk_level == "low":
+        return 2
+    return 3
 
 
 def _format_created_at(value) -> str:

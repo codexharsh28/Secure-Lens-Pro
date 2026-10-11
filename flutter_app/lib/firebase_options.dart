@@ -1,36 +1,32 @@
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, kIsWeb, TargetPlatform;
 
 class DefaultFirebaseOptions {
-  static FirebaseOptions get currentPlatform {
-    if (kIsWeb) {
-      return web;
+  static const String _apiKey = String.fromEnvironment('FIREBASE_WEB_API_KEY');
+  static const String _appId = String.fromEnvironment('FIREBASE_WEB_APP_ID');
+  static const String _senderId =
+      String.fromEnvironment('FIREBASE_MESSAGING_SENDER_ID');
+  static const String _projectId = String.fromEnvironment('FIREBASE_PROJECT_ID');
+  static const String _authDomain =
+      String.fromEnvironment('FIREBASE_AUTH_DOMAIN');
+
+  static FirebaseOptions get web {
+    if (_apiKey.isEmpty ||
+        _appId.isEmpty ||
+        _senderId.isEmpty ||
+        _projectId.isEmpty) {
+      throw StateError(
+        'Provide the Firebase web app values with --dart-define. See README.md.',
+      );
     }
 
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.android:
-        return android;
-      default:
-        return web;
-    }
+    return FirebaseOptions(
+      apiKey: _apiKey,
+      appId: _appId,
+      messagingSenderId: _senderId,
+      projectId: _projectId,
+      authDomain: _authDomain.isEmpty ? null : _authDomain,
+    );
   }
 
-  static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBYrhugVRRszhqPOxgpUe9LsJsve6JepF0',
-    appId: '1:1090764921089:web:7a66f225b7f71d11c2e300',
-    messagingSenderId: '1090764921089',
-    projectId: 'final-year-project-88064',
-    authDomain: 'final-year-project-88064.firebaseapp.com',
-    storageBucket: 'final-year-project-88064.firebasestorage.app',
-    measurementId: 'G-BWF55T94VH',
-  );
-
-  static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBYrhugVRRszhqPOxgpUe9LsJsve6JepF0',
-    appId: '1:1090764921089:web:7a66f225b7f71d11c2e300',
-    messagingSenderId: '1090764921089',
-    projectId: 'final-year-project-88064',
-    storageBucket: 'final-year-project-88064.firebasestorage.app',
-  );
+  static FirebaseOptions get currentPlatform => web;
 }

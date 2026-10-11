@@ -1,166 +1,73 @@
 import hashlib
+import re
 
 
-BREACH_LIBRARY = [
-    {
-        "name": "LinkedIn",
-        "year": 2021,
-        "data_types": ["Email address", "Full name", "Phone number"],
-    },
-    {
-        "name": "Dropbox",
-        "year": 2020,
-        "data_types": ["Email address", "Password hint"],
-    },
-    {
-        "name": "Canva",
-        "year": 2019,
-        "data_types": ["Email address", "Username", "Full name"],
-    },
-    {
-        "name": "Adobe",
-        "year": 2018,
-        "data_types": ["Email address", "Password hint", "Username"],
-    },
-    {
-        "name": "Twitter",
-        "year": 2022,
-        "data_types": ["Email address", "Username", "Phone number"],
-    },
-    {
-        "name": "MyFitnessPal",
-        "year": 2019,
-        "data_types": ["Email address", "Username"],
-    },
-    {
-        "name": "Tokopedia",
-        "year": 2020,
-        "data_types": ["Email address", "Phone number", "Full name"],
-    },
+# This small list is used only to make a predictable hackathon demo. It is not
+# connected to a breach database and every response is marked as simulated.
+DEMO_BREACH_LIBRARY = [
+    {"name": "LinkedIn", "year": 2021, "data_types": ["Email address", "Full name"]},
+    {"name": "Dropbox", "year": 2020, "data_types": ["Email address", "Password hint"]},
+    {"name": "Canva", "year": 2019, "data_types": ["Email address", "Username"]},
+    {"name": "Adobe", "year": 2018, "data_types": ["Email address", "Username"]},
+    {"name": "Twitter", "year": 2022, "data_types": ["Email address", "Phone number"]},
+    {"name": "MyFitnessPal", "year": 2019, "data_types": ["Email address", "Username"]},
 ]
+
+_EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+
+
+def _result(identifier: str, exposed: bool, breaches: list[dict], message: str, recommendation: str) -> dict:
+    return {
+        "identifier": identifier,
+        "exposed": exposed,
+        "breach_count": len(breaches),
+        "breaches": breaches,
+        "message": message,
+        "recommendation": recommendation,
+        "is_simulated": True,
+        "data_source": "Secure Lens demo dataset (simulated)",
+    }
 
 
 def lookup_breach(identifier: str) -> dict:
     identifier = (identifier or "").strip().lower()
+    recommendation = (
+        "Use a unique password for every account, enable two-factor authentication, "
+        "and review recent account activity."
+    )
 
-    if not identifier:
-        return {
-            "identifier": "",
-            "exposed": False,
-            "breach_count": 0,
-            "breaches": [],
-            "message": "Enter an email address to check breach exposure.",
-            "recommendation": "Use an email address to continue the breach check.",
-        }
-
-    if "@" not in identifier:
-        return {
-            "identifier": identifier,
-            "exposed": False,
-            "breach_count": 0,
-            "breaches": [],
-            "message": "This breach check currently supports email addresses only.",
-            "recommendation": "Please enter an email address instead of a phone number.",
-        }
-
-    local_part = identifier.split("@", 1)[0]
-    domain = identifier.split("@", 1)[1]
-
-    if len(local_part) < 3 or "." not in domain:
-        return {
-            "identifier": identifier,
-            "exposed": False,
-            "breach_count": 0,
-            "breaches": [],
-            "message": "Please enter a valid email address for breach monitoring.",
-            "recommendation": "Check the email format and try again.",
-        }
+    if not _EMAIL_RE.fullmatch(identifier):
+        return _result(
+            identifier,
+            False,
+            [],
+            "Enter a valid email address. This demo does not query real breach databases.",
+            recommendation,
+        )
 
     digest = hashlib.sha256(identifier.encode("utf-8")).hexdigest()
     score = int(digest[:8], 16) % 100
-
-    if _looks_safe(identifier, score):
-        return {
-            "identifier": identifier,
-            "exposed": False,
-            "breach_count": 0,
-            "breaches": [],
-            "message": (
-                "No known breach exposure pattern was detected for this email in the current monitoring dataset."
-            ),
-            "recommendation": (
-                "Keep using a strong unique password and enable two-factor authentication for better account safety."
-            ),
-        }
-
-    breach_count = 1 if score < 70 else 2 if score < 88 else 3
-    breaches = _pick_breaches(identifier, breach_count)
-
-    top_names = ", ".join(item["name"] for item in breaches[:2])
-    data_types = sorted(
-        {
-            data_type
-            for breach in breaches
-            for data_type in breach["data_types"]
-        }
-    )
-
-    return {
-        "identifier": identifier,
-        "exposed": True,
-        "breach_count": len(breaches),
-        "breaches": breaches,
-        "message": (
-            f"This email appears in {len(breaches)} breach record"
-            f"{'' if len(breaches) == 1 else 's'}, including {top_names}. "
-            f"Exposed information may include {', '.join(data_types[:3]).lower()}."
-        ),
-        "recommendation": (
-            "Change passwords for related accounts, avoid password reuse, enable two-factor authentication, "
-            "and review recent account activity."
-        ),
-    }
-
-
-def _looks_safe(identifier: str, score: int) -> bool:
-    trusted_domains = {
-        "gmail.com",
-        "outlook.com",
-        "hotmail.com",
-        "yahoo.com",
-        "icloud.com",
-    }
-
-    domain = identifier.split("@", 1)[1]
-
-    if domain in trusted_domains and score < 42:
-        return True
-
-    return score < 28
-
-
-def _pick_breaches(identifier: str, breach_count: int) -> list[dict]:
-    digest = hashlib.md5(identifier.encode("utf-8")).hexdigest()
-    start = int(digest[:6], 16) % len(BREACH_LIBRARY)
-
-    selected = []
-    used_names = set()
-
-    for offset in range(len(BREACH_LIBRARY)):
-        breach = BREACH_LIBRARY[(start + offset) % len(BREACH_LIBRARY)]
-        if breach["name"] in used_names:
-            continue
-
-        selected.append(
-            {
-                "name": breach["name"],
-                "year": breach["year"],
-                "data_types": breach["data_types"],
-            }
+    if score < 35:
+        return _result(
+            identifier,
+            False,
+            [],
+            "Demo result: no sample record was selected. This is not a real breach lookup.",
+            recommendation,
         )
-        used_names.add(breach["name"])
 
-        if len(selected) == breach_count:
-            break
-
-    return selected
+    breach_count = 1 + (score >= 75) + (score >= 92)
+    start = int(digest[8:16], 16) % len(DEMO_BREACH_LIBRARY)
+    breaches = [
+        DEMO_BREACH_LIBRARY[(start + offset) % len(DEMO_BREACH_LIBRARY)]
+        for offset in range(breach_count)
+    ]
+    names = ", ".join(item["name"] for item in breaches)
+    return _result(
+        identifier,
+        True,
+        breaches,
+        f"Demo result only: sample breach entries ({names}) were selected for this presentation. "
+        "This does not mean this email was found in those breaches.",
+        recommendation,
+    )

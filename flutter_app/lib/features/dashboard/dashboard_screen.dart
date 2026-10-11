@@ -24,6 +24,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   int _score = 0;
   String _level = 'Moderate';
+  bool _scoreAvailable = false;
+  bool _scoreHasActivity = false;
 
   Map<String, dynamic>? _messageResult;
   Map<String, dynamic>? _urlResult;
@@ -42,13 +44,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       setState(() {
         _score = (result['cyber_score'] ?? 0) as int;
         _level = (result['level'] ?? 'Moderate').toString();
+        _scoreAvailable = true;
+        _scoreHasActivity = result['has_activity'] == true;
         _loadingScore = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _score = 78;
-        _level = 'Moderate';
+        _scoreAvailable = false;
         _loadingScore = false;
       });
     }
@@ -68,7 +71,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (!mounted) return;
       setState(() {
         _messageResult = {
-          'risk_level': 'warning',
+          'risk_level': 'error',
           'summary': 'We could not analyze this message right now.',
         };
       });
@@ -91,7 +94,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (!mounted) return;
       setState(() {
         _urlResult = {
-          'risk_level': 'warning',
+          'risk_level': 'error',
           'summary': 'We could not analyze this URL right now.',
         };
       });
@@ -114,7 +117,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (!mounted) return;
       setState(() {
         _breachResult = {
-          'exposed': false,
+          'error': true,
           'message': 'We could not check breach exposure right now.',
         };
       });
@@ -125,6 +128,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   _AlertTone _toneFromScan(Map<String, dynamic>? result) {
     final level = (result?['risk_level'] ?? '').toString().toLowerCase();
+    if (level == 'error') return _AlertTone.neutral;
 
     if (level.contains('high') ||
         level.contains('critical') ||
@@ -145,6 +149,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   _AlertTone _toneFromBreach(Map<String, dynamic>? result) {
     if (result == null) return _AlertTone.neutral;
+    if (result['error'] == true || result['is_simulated'] == true) {
+      return _AlertTone.neutral;
+    }
     return (result['exposed'] ?? false) == true
         ? _AlertTone.danger
         : _AlertTone.safe;
@@ -152,12 +159,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   String _breachTitle(Map<String, dynamic>? result) {
     if (result == null) return 'BREACH CHECK';
+    if (result['error'] == true) return 'CHECK UNAVAILABLE';
+    if (result['is_simulated'] == true) return 'SIMULATED DEMO RESULT';
 
     final exposed = (result['exposed'] ?? false) == true;
     final count = (result['breach_count'] ?? 0) as int;
 
     if (!exposed) {
-      return 'NO EXPOSURE DETECTED';
+      return result['is_simulated'] == true
+          ? 'NO SAMPLE MATCH'
+          : 'NO EXPOSURE DETECTED';
     }
 
     if (count <= 1) {
@@ -206,12 +217,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   String _deviceStatus() {
-    if (_score >= 85) return 'Secured';
-    if (_score >= 65) return 'Needs Review';
-    return 'At Risk';
+    if (!_scoreAvailable) return 'Unavailable';
+    if (!_scoreHasActivity) return 'No Scan Data';
+    if (_score >= 85) return 'Lower Risk Activity';
+    if (_score >= 65) return 'Review Activity';
+    return 'High Risk Activity';
   }
 
   Color _deviceStatusColor() {
+    if (!_scoreAvailable || !_scoreHasActivity) return const Color(0xFFD3C3BC);
     if (_score >= 85) return const Color(0xFFFFD4A6);
     if (_score >= 65) return const Color(0xFFFFC980);
     return const Color(0xFFFF8B82);
@@ -226,8 +240,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     if (tones.contains(_AlertTone.danger)) return 'High Alert';
     if (tones.contains(_AlertTone.warning)) return 'Attention Needed';
+    if (_messageResult?['risk_level'] == 'error' ||
+        _urlResult?['risk_level'] == 'error' ||
+        _breachResult?['error'] == true) {
+      return 'Check Unavailable';
+    }
     if (_messageResult != null || _urlResult != null || _breachResult != null) {
-      return 'No Major Threat';
+      return 'No High Risk Found';
     }
     return 'Monitoring';
   }
@@ -337,13 +356,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         glow: true,
                         compact: compact,
                         onTap: () => _showInfo(
-                          'Cyber Score',
-                          'Your current cybersecurity score is based on password strength, risky click behavior, breach exposure, and security awareness factors.',
+                          'Activity Score',
+                          'This prototype score summarizes recorded scan activity. It is not a measure of your device or overall security.',
                         ),
                         child: Column(
                           children: [
                             Text(
-                              'Cyber Score',
+                              'Activity Score',
                               style: TextStyle(
                                 color: const Color(0xFFFFE6D9),
                                 fontSize: compact ? 14 : 15,
@@ -354,7 +373,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             Text(
                               _loadingScore
                                   ? 'Loading...'
-                                  : '$_score - ${_level.toUpperCase()}',
+                                  : _scoreAvailable
+                                      ? _scoreHasActivity
+                                          ? _score.toString() + ' - ' + _level.toUpperCase()
+                                          : 'No Scan Data'
+                                      : 'Unavailable',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: const Color(0xFFFFCDB6),
@@ -369,8 +392,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       _InfoCard(
                         compact: compact,
                         onTap: () => _showInfo(
-                          'Device Status',
-                          'This reflects the current overall protection condition of your app environment based on cyber score and recent scan activity.',
+                          'Activity Status',
+                          'This is a label derived from recent scan activity. It does not measure or control the security of your device.',
                         ),
                         child: Row(
                           children: [
@@ -379,7 +402,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Device Status',
+                                    'Activity Status',
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontSize: compact ? 14 : 15,
@@ -402,15 +425,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               width: compact ? 44 : 50,
                               height: compact ? 44 : 50,
                               decoration: BoxDecoration(
-                                color: _deviceStatus() == 'At Risk'
-                                    ? const Color(0xFFFF8B82)
-                                    : const Color(0xFFFFD4A6),
+                                color: _deviceStatusColor().withOpacity(0.85),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
-                                _deviceStatus() == 'At Risk'
-                                    ? Icons.priority_high_rounded
-                                    : Icons.check_rounded,
+                                !_scoreAvailable || !_scoreHasActivity
+                                    ? Icons.info_outline_rounded
+                                    : _deviceStatus() == 'High Risk Activity'
+                                        ? Icons.priority_high_rounded
+                                        : Icons.check_rounded,
                                 color: const Color(0xFF31260D),
                                 size: compact ? 24 : 28,
                               ),

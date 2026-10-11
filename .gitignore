@@ -1,4 +1,30 @@
+# Python
 backend/.env
+.env
+.env.*
+!.env.example
+backend/.venv/
+venv/
 **/__pycache__/
-*.pyc
+*.py[cod]
+
+# Flutter / Dart
+**/.dart_tool/
+**/build/
+flutter_app/.flutter-plugins
+flutter_app/.flutter-plugins-dependencies
+flutter_app/android/local.properties
 flutter_app/android/app/google-services.json
+**/service-account*.json
+**/*firebase-adminsdk*.json
+
+# Firebase local state and logs
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Editor and OS files
+.DS_Store
+.idea/
+.vscode/

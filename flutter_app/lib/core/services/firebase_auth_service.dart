@@ -115,31 +115,6 @@ class FirebaseAuthService {
     }
   }
 
-  Future<void> createAdminIfMissing() async {
-    const adminEmail = 'admin@securelens.com';
-    const adminPassword = 'Admin@123';
-
-    try {
-      final methods = await _auth.fetchSignInMethodsForEmail(adminEmail);
-      if (methods.isEmpty) {
-        final credential = await _auth.createUserWithEmailAndPassword(
-          email: adminEmail,
-          password: adminPassword,
-        );
-
-        await _firestore.collection('users').doc(credential.user!.uid).set({
-          'name': 'System Administrator',
-          'email': adminEmail,
-          'photoUrl': '',
-          'role': 'admin',
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-
-        await _auth.signOut();
-      }
-    } catch (_) {}
-  }
-
   Future<Map<String, dynamic>?> getCurrentUserProfile() async {
     final user = _auth.currentUser;
     if (user == null) return null;
